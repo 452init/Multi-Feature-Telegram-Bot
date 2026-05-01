@@ -33,10 +33,10 @@ giving a genuine production traffic to observe and monitor.
 This project is a hobby platform that teaches load balancing, reverse proxying, and
 distributed systems through direct, hands-on experience with real internet traffic.
 
-The core learning vehicle is the **load balancer**, which you build entirely from scratch.
+The core learning vehicle is the **load balancer**, which is build entirely from scratch.
 It is not a wrapper around Nginx, HAProxy, or any existing proxy software. Every byte of
 routing logic, every health check, every header rewrite, and every connection management
-decision is code you write yourself.
+decision is code written from ground up.
 
 The platform gives the load balancer something meaningful to protect: a Telegram bot with
 real utility commands. Because the bot is live on Telegram's network, real users generate

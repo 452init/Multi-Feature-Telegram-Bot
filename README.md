@@ -77,24 +77,24 @@ Telegram Servers  ──── HTTP POST webhook ────►  Load Balancer 
                               │                       │                       │
                      reads JSON body          routes by command        forwards to backend
                               │                       │                       │
-                    ┌─────────▼──────────────────────────────────────────┐   │
-                    │              Routing Table                          │   │
-                    │  /weather    ──► Weather Handler Pool               │   │
-                    │  /convert    ──► Currency Handler Pool              │   │
-                    │  /summarize  ──► Summarize Handler Pool             │   │
-                    │  (default)   ──► General Handler Pool               │   │
-                    └─────────────────────────────────────────────────────┘   │
+                    ┌─────────▼──────────────────────────────────────────┐    │
+                    │              Routing Table                         │    │
+                    │  /weather    ──► Weather Handler Pool              │    │
+                    │  /convert    ──► Currency Handler Pool             │    │
+                    │  /summarize  ──► Summarize Handler Pool            │    │
+                    │  (default)   ──► General Handler Pool              │    │
+                    └────────────────────────────────────────────────────┘    │
                                                                               │
                ┌──────────────────────────────────────────────────────────────┘
                │
      ┌─────────▼──────────────────────────────────────────────┐
-     │                  Service Handler Pools                   │
-     │                                                          │
+     │                  Service Handler Pools                 │
+     │                                                        │
      │  Weather Pool      Currency Pool   Summarize Pool  General Pool
      │  [instance A]      [instance A]    [instance A]    [instance A]
      │  [instance B]      [instance B]    [instance B]    [instance B]
-     │                                                          │
-     └──────────────────────────┬───────────────────────────────┘
+     │                                                        │
+     └──────────────────────────┬─────────────────────────────┘
                                 │  (all pools read/write)
                                 ▼
                        Shared State Store

@@ -2,7 +2,7 @@
 
 A multi-service Telegram bot platform built around a hand-crafted Layer 7 load balancer.
 Every user message becomes a real HTTP webhook that flows through your load balancer,
-giving you genuine production traffic to observe, monitor, and learn from — for free,
+giving you genuine production traffic to observe, monitor, and learn from - for free,
 on Oracle Cloud's Always Free tier.
 
 ---

@@ -1,4 +1,4 @@
-# Telegram Bot Platform — Project Documentation
+# Telegram Bot Platform - Project Documentation
 
 A multi-service Telegram bot platform built around a hand-crafted Layer 7 load balancer.
 Every user message becomes a real HTTP webhook that flows through your load balancer,
@@ -46,7 +46,7 @@ Telegram group, and the traffic comes.
 
 **What you learn:**
 
-- How a Layer 7 load balancer differs from Layer 4 — concretely, in code
+- How a Layer 7 load balancer differs from Layer 4 - concretely, in code
 - How TLS termination works and why it must happen before routing
 - How to parse application-layer content (HTTP + JSON) to make routing decisions
 - How health checking keeps traffic away from dead backends
@@ -54,14 +54,14 @@ Telegram group, and the traffic comes.
   services do not
 - How connection draining allows you to take backends down without dropping live requests
 - How shared state makes horizontal scaling possible
-- How real traffic behaves differently from simulated traffic — retries, bursts, duplicates
+- How real traffic behaves differently from simulated traffic - retries, bursts, duplicates
 
 **What you do not learn here (intentionally out of scope):**
 
-- How to use Nginx, Caddy, or any managed proxy — you are building the equivalent
-- How Kubernetes ingress controllers work internally — but after this project you will
+- How to use Nginx, Caddy, or any managed proxy - you are building the equivalent
+- How Kubernetes ingress controllers work internally - but after this project you will
   understand what they are doing
-- How to operate a production system at scale — this is a learning project, not an SRE course
+- How to operate a production system at scale - this is a learning project, not an SRE course
 
 ---
 
@@ -134,7 +134,7 @@ telegram-bot-platform/
 │   ├── state-store.md                 ← what lives in the store and why
 │   └── observability.md               ← metrics, dashboard, what to watch for
 │
-├── load-balancer/                     ← the core of the project — hand-built Layer 7 LB
+├── load-balancer/                     ← the core of the project - hand-built Layer 7 LB
 │   ├── main                           ← entry point, starts the LB process
 │   ├── config/
 │   │   └── config                     ← loads and validates config at startup
@@ -261,9 +261,9 @@ listens on port 443 (HTTPS) and is the only component directly reachable from th
 internet.
 
 **What it is not:**
-It is not a framework. It is not a wrapper around an existing proxy. Every part of it —
+It is not a framework. It is not a wrapper around an existing proxy. Every part of it -
 the TCP listener, the TLS handshake, the HTTP parser, the routing engine, the connection
-to the backend — is code you write.
+to the backend - is code you write.
 
 **Responsibilities, in the order they happen per request:**
 
@@ -284,65 +284,65 @@ to the backend — is code you write.
 
 **Sub-components:**
 
-`config/` — Reads the lb-config.yaml at startup. Holds the full routing table,
+`config/` - Reads the lb-config.yaml at startup. Holds the full routing table,
 pool definitions (which addresses are in each pool), algorithm selection, timeout
 values, and middleware settings. The config is the single source of truth for the
-LB's behaviour. Changing routing rules does not require recompiling — only a config
+LB's behaviour. Changing routing rules does not require recompiling - only a config
 reload or restart.
 
-`listener/` — Opens a TCP socket on port 443 and accepts incoming connections in a
+`listener/` - Opens a TCP socket on port 443 and accepts incoming connections in a
 loop. Each accepted connection is handed off to a goroutine (or thread, depending
 on your language) so the listener never blocks. The listener itself holds no state.
 
-`tls/terminator` — Performs the TLS handshake using the certificate provisioned by
+`tls/terminator` - Performs the TLS handshake using the certificate provisioned by
 Let's Encrypt. After a successful handshake, it exposes a plain, decrypted byte
-stream to the rest of the pipeline. The backend services never see TLS — they speak
+stream to the rest of the pipeline. The backend services never see TLS - they speak
 plain HTTP on the internal network. This is called TLS termination at the edge.
 
-`http/parser` — Reads bytes from the decrypted stream and constructs a structured
+`http/parser` - Reads bytes from the decrypted stream and constructs a structured
 representation of the HTTP request: method, path, headers map, and body bytes. The
 body must be fully buffered before the router can inspect it. This parser is a
-learning exercise in its own right — HTTP/1.1 framing has subtle rules around
+learning exercise in its own right - HTTP/1.1 framing has subtle rules around
 Content-Length, chunked transfer encoding, and header line endings.
 
-`router/extractor` — Given the buffered body bytes, navigates the JSON structure to
+`router/extractor` - Given the buffered body bytes, navigates the JSON structure to
 find the value at `update.message.text`. Extracts the first whitespace-delimited
 token. If that token begins with `/`, it is a bot command and becomes the routing
 key. If the field is absent or the body is not a recognised Telegram update type,
 the extractor returns a sentinel value that causes the router to use the fallback rule.
 
-`router/router` — Holds the routing table loaded from config. Evaluates rules in
+`router/router` - Holds the routing table loaded from config. Evaluates rules in
 order. The first matching rule wins. Returns the name of the destination pool.
 
-`pool/pool` — A named collection of backend instances. The pool knows which
+`pool/pool` - A named collection of backend instances. The pool knows which
 instances are currently healthy (via health state) and delegates instance selection
 to the selector.
 
-`pool/selector` — Implements the balancing algorithm. Round-robin maintains a
+`pool/selector` - Implements the balancing algorithm. Round-robin maintains a
 counter and cycles through instances. Least-connections tracks the active request
 count per instance and always selects the instance with the lowest count. The
 selector is the only component that differs between balancing strategies.
 
-`health/checker` — Runs a background loop for each pool. Periodically sends an
+`health/checker` - Runs a background loop for each pool. Periodically sends an
 HTTP GET to each instance's `/health` endpoint. Tracks consecutive successes and
 failures. After a configurable number of consecutive failures, marks the instance
 as unhealthy and removes it from the eligible set. After a configurable number of
 consecutive successes, restores it. This is entirely separate from the request
-handling path — health checks run on their own schedule.
+handling path - health checks run on their own schedule.
 
-`proxy/forwarder` — Opens a new TCP connection to the selected backend instance,
+`proxy/forwarder` - Opens a new TCP connection to the selected backend instance,
 writes the forwarded HTTP request (with rewritten headers), waits for the backend
 response, and streams it back to the original caller. Handles timeouts: if the
 backend does not respond within the configured deadline, the forwarder closes the
 connection and returns a 504 to Telegram.
 
-`middleware/dedup` — Before routing, checks whether the incoming Telegram message ID
+`middleware/dedup` - Before routing, checks whether the incoming Telegram message ID
 already exists in the state store. If it does, returns 200 immediately without
 forwarding to any backend. If it does not, writes the message ID to the store with
 a short TTL (long enough to cover Telegram's retry window) and proceeds. This
 prevents double-processing when Telegram retries a delivery.
 
-`middleware/ratelimit` — Reads the user ID from the JSON body. Checks a counter in
+`middleware/ratelimit` - Reads the user ID from the JSON body. Checks a counter in
 the state store for that user. If the counter exceeds the configured threshold for
 the current window, returns 429 without forwarding. Otherwise, increments the
 counter and proceeds. The counter has a TTL equal to the rate limit window.
@@ -352,7 +352,7 @@ counter and proceeds. The counter has a TTL equal to the rate limit window.
 ### 4.2 Service Handlers
 
 Each service handler is an independent HTTP server. It has no knowledge of the load
-balancer — it simply listens on an internal port, receives forwarded requests, processes
+balancer - it simply listens on an internal port, receives forwarded requests, processes
 them, and returns an HTTP response. Multiple instances of each handler can run
 simultaneously because all shared state lives in the state store, not inside the process.
 
@@ -361,7 +361,7 @@ simultaneously because all shared state lives in the state store, not inside the
 Receives webhooks for `/weather` commands. Extracts the city name from the message text.
 Calls an external weather API using a free-tier API key. Formats a human-readable response.
 Makes an outbound HTTP call to Telegram's `sendMessage` API to deliver the reply to the
-user. Returns 200 to the load balancer. Does not store any session state — each request
+user. Returns 200 to the load balancer. Does not store any session state - each request
 is fully self-contained.
 
 **Currency Handler**
@@ -391,8 +391,8 @@ response and the bot reply are independent events.
 The catch-all. Receives any request that did not match a specific command rule. Has two jobs.
 
 First, check whether the sender has an active session with another handler (stored in the
-state store). If they do — for example they are mid-conversation with the currency handler
-— the general handler delegates to the appropriate logic rather than treating the message
+state store). If they do - for example they are mid-conversation with the currency handler
+- the general handler delegates to the appropriate logic rather than treating the message
 as unknown.
 
 Second, if there is truly no context, respond with a help message listing available commands.
@@ -407,32 +407,32 @@ that has global visibility across all processes.
 
 **Key namespaces and what lives in each:**
 
-`session:{user_id}` — The current conversation state for a user who is mid-command.
+`session:{user_id}` - The current conversation state for a user who is mid-command.
 Contains which command is active, what step the conversation is on, and any partial
 data collected so far (e.g. the amount entered for a currency conversion). Has a TTL
 of several minutes so abandoned sessions clean themselves up.
 
-`ratelimit:{user_id}:{window}` — The request counter for a specific user within the
+`ratelimit:{user_id}:{window}` - The request counter for a specific user within the
 current time window. The window is a timestamp truncated to the window size (e.g. the
 current minute). Has a TTL equal to the window size. The load balancer increments this
 on every request and checks it before forwarding.
 
-`dedup:{message_id}` — A flag indicating this Telegram message ID has been processed.
+`dedup:{message_id}` - A flag indicating this Telegram message ID has been processed.
 Has a TTL equal to Telegram's retry window (a few minutes). The load balancer sets this
 on first receipt and checks it on subsequent arrivals of the same ID.
 
-`metrics:requests:{timestamp}` — A counter of total requests processed in a given
+`metrics:requests:{timestamp}` - A counter of total requests processed in a given
 second or minute. Written by the load balancer. Read by the dashboard.
 
-`metrics:instance:{pool}:{instance}:latency` — A rolling list of response times for a
+`metrics:instance:{pool}:{instance}:latency` - A rolling list of response times for a
 specific backend instance. Written by the load balancer after each forwarded request.
 Read by the dashboard to compute per-instance average latency.
 
-`metrics:instance:{pool}:{instance}:count` — Total requests handled by a specific
+`metrics:instance:{pool}:{instance}:count` - Total requests handled by a specific
 instance since startup. Used by the dashboard and also by the least-connections
 selector for real-time load awareness.
 
-`cache:weather:{city}:{hour}` — Cached weather API response for a city, keyed by city
+`cache:weather:{city}:{hour}` - Cached weather API response for a city, keyed by city
 name and the current hour. Has a TTL of one hour. The weather handler writes this on
 first fetch and reads it on subsequent requests for the same city within the hour.
 
@@ -442,29 +442,29 @@ first fetch and reads it on subsequent requests for the same city within the hou
 
 A small web application that reads from the state store and presents real-time information
 about your platform's behaviour. It runs as its own process on one of the Oracle VMs and
-is itself served through the load balancer — meaning you can observe the LB's behaviour
+is itself served through the load balancer - meaning you can observe the LB's behaviour
 while the LB is simultaneously serving your request to the dashboard.
 
 **What the dashboard shows:**
 
-Requests per second graph — a rolling time-series of incoming webhook volume. You can
+Requests per second graph - a rolling time-series of incoming webhook volume. You can
 watch this spike when you share your bot in a busy group.
 
-Per-instance request distribution — a bar chart showing how many requests each backend
+Per-instance request distribution - a bar chart showing how many requests each backend
 instance has handled. With round-robin, this should be nearly even. With least-connections
 and a slow summarize handler, you will see the distribution skew.
 
-Per-instance latency — average response time per instance. Useful for spotting when a
+Per-instance latency - average response time per instance. Useful for spotting when a
 particular instance is slower than its peers.
 
-Health status panel — a grid showing each instance as green (healthy), yellow (degraded),
+Health status panel - a grid showing each instance as green (healthy), yellow (degraded),
 or red (down). Updates in real time as the health checker marks instances up or down.
 
-Live request feed — a rolling list of the most recent requests showing: which command was
+Live request feed - a rolling list of the most recent requests showing: which command was
 received, which pool was selected, which instance handled it, and how long it took. This
 is the most instructive view when you are actively testing routing behaviour.
 
-Failover event log — a timestamped record of every time an instance was marked unhealthy
+Failover event log - a timestamped record of every time an instance was marked unhealthy
 or restored. Lets you correlate health events with traffic pattern changes in the graphs.
 
 ---
@@ -552,8 +552,8 @@ and it must be the last rule in the table.
 
 **What happens when the routing signal is absent:**
 
-When the incoming webhook is not a text message — for example it is a button tap
-(callback_query) or an inline query — the `extractor` cannot find `message.text`.
+When the incoming webhook is not a text message - for example it is a button tap
+(callback_query) or an inline query - the `extractor` cannot find `message.text`.
 It returns a sentinel value. The router treats any sentinel as a non-match for all
 typed rules and falls through to the fallback, sending the request to the General
 pool. The General handler knows how to inspect callback_query and inline_query fields
@@ -572,13 +572,13 @@ unreachable does the LB return a 503 to Telegram.
 ## 7. Health Checking
 
 The health checker runs as a background goroutine (or thread) per pool. It is entirely
-independent of the request handling path — it runs on a timer, not triggered by requests.
+independent of the request handling path - it runs on a timer, not triggered by requests.
 
 **The check itself:**
 
 Every N seconds (configurable per pool), the health checker sends an HTTP GET to
 `{instance-address}/health`. A healthy instance returns HTTP 200 with a JSON body
-containing its current status. The checker records the result — success or failure —
+containing its current status. The checker records the result - success or failure -
 in the instance's state object.
 
 **State transitions:**
@@ -595,12 +595,12 @@ When you want to take an instance down for maintenance, you set it to `draining`
 (via a script or admin endpoint). A draining instance receives no new requests from the
 pool selector, but the forwarder does not immediately close existing connections. It
 waits until all in-flight requests to that instance complete before terminating. This
-is graceful draining — no request is dropped mid-flight.
+is graceful draining - no request is dropped mid-flight.
 
 **The health endpoint contract:**
 
 Each service handler exposes `/health`. That endpoint returns 200 if the handler
-considers itself operational — it can reach the state store, it has capacity to accept
+considers itself operational - it can reach the state store, it has capacity to accept
 new requests, and its external API dependencies are reachable. It returns 503 if any
 of those conditions fail. This makes health checking application-aware rather than
 just TCP-aware. A handler whose external weather API is down should report unhealthy
@@ -640,16 +640,16 @@ though their leg of the journey is not.
 All behaviour is driven by YAML files in `config/`. No routing logic, pool membership,
 health check thresholds, or algorithm choice is hardcoded.
 
-`lb-config.yaml` — Defines pools (names, instance addresses), routing rules (in evaluation
+`lb-config.yaml` - Defines pools (names, instance addresses), routing rules (in evaluation
 order), balancing algorithm per pool, timeout values (backend connect timeout, read timeout,
 write timeout), and middleware settings (rate limit window, rate limit threshold, dedup TTL).
 
-`health-config.yaml` — Defines health check interval per pool, failure threshold (how many
+`health-config.yaml` - Defines health check interval per pool, failure threshold (how many
 consecutive failures before marking unhealthy), recovery threshold (how many consecutive
 successes before restoring), drain timeout (how long to wait for in-flight requests before
 forcibly closing a draining instance).
 
-`tls-config.yaml` — Defines certificate path, private key path, and minimum TLS version.
+`tls-config.yaml` - Defines certificate path, private key path, and minimum TLS version.
 
 Changes to config require a process restart to take effect. A future enhancement could
 add a config reload signal so the LB picks up routing changes without dropping connections.
@@ -659,22 +659,22 @@ add a config reload signal so the LB picks up routing changes without dropping c
 ## 10. Deployment Layout on Oracle Cloud
 
 Oracle Cloud's Always Free ARM tier provides 4 CPU cores and 24GB RAM total. These are
-sliced into separate VMs so components are genuinely isolated — a crash in one VM does
+sliced into separate VMs so components are genuinely isolated - a crash in one VM does
 not affect others.
 
 ```
-VM 1 (1 core, 6GB)   — Load balancer process + TLS cert + state store (Redis)
-VM 2 (1 core, 6GB)   — Weather handler (2 instances) + Currency handler (2 instances)
-VM 3 (1 core, 6GB)   — Summarize handler (2 instances) + General handler (2 instances)
-VM 4 (1 core, 6GB)   — Live dashboard
+VM 1 (1 core, 6GB)   - Load balancer process + TLS cert + state store (Redis)
+VM 2 (1 core, 6GB)   - Weather handler (2 instances) + Currency handler (2 instances)
+VM 3 (1 core, 6GB)   - Summarize handler (2 instances) + General handler (2 instances)
+VM 4 (1 core, 6GB)   - Live dashboard
 ```
 
 All VMs are connected on Oracle's internal private network. Backend services listen on
-internal IPs only — they are not reachable from the public internet. Only the LB's public
+internal IPs only - they are not reachable from the public internet. Only the LB's public
 IP is exposed. The state store also listens on the internal network only.
 
 This layout means your load balancer is making real network calls to real separate machines
-when it forwards requests — not loopback calls on localhost. That distinction matters for
+when it forwards requests - not loopback calls on localhost. That distinction matters for
 understanding connection latency, connection pooling, and what happens when a VM is
 rebooted.
 
@@ -683,7 +683,7 @@ rebooted.
 ## 11. Observability and Metrics
 
 The platform is designed to be watched. The goal is not just to build a load balancer but
-to observe it behaving — routing, distributing, health-checking, failing over — with real
+to observe it behaving - routing, distributing, health-checking, failing over - with real
 traffic.
 
 **What to watch when testing routing:**
@@ -699,7 +699,7 @@ blocked by a slow summarize call.
 Stop one backend instance manually. Watch the health checker detect the failure (after K
 consecutive failed checks). Watch the live feed stop showing that instance receiving traffic.
 Restart the instance. Watch it recover after M successful checks. No requests should fail
-from Telegram's perspective — the LB should have retried on a healthy instance.
+from Telegram's perspective - the LB should have retried on a healthy instance.
 
 **What to watch during a spike:**
 
@@ -731,19 +731,19 @@ The LB has no awareness of this — it correctly treats the lack of a command as
 use the fallback.
 
 **All instances in a pool are unhealthy.**
-If every instance in a pool is marked unhealthy — for example all currency handler instances
-are down — the LB returns 503 for any `/convert` request. Telegram receives a non-200 and
+If every instance in a pool is marked unhealthy - for example all currency handler instances
+are down - the LB returns 503 for any `/convert` request. Telegram receives a non-200 and
 retries. Those retries also receive 503 and are logged. Once an instance recovers and passes
 health checks, the retries begin routing successfully. Because of dedup, each unique message
 ID is processed exactly once when a healthy instance becomes available.
 
 **The state store itself goes down.**
 This is the single point of failure in the current architecture. If Redis goes down, the
-dedup middleware cannot check for duplicates (safe to proceed — risk of double-processing),
-the rate limiter cannot check quotas (safe to proceed — risk of over-allowing), and session
+dedup middleware cannot check for duplicates (safe to proceed - risk of double-processing),
+the rate limiter cannot check quotas (safe to proceed - risk of over-allowing), and session
 state is unavailable (multi-step conversations break). Service handlers can still process
 single-step commands like `/weather` that require no session state. The dashboard goes dark.
-Addressing this is a future scaling concern — a replicated state store or a fallback to
+Addressing this is a future scaling concern - a replicated state store or a fallback to
 in-memory state per instance.
 
 ---
@@ -758,9 +758,9 @@ internal network. Confirm VM 1 has a public IP reachable from the internet.
 
 **Step 2.** Build a single weather handler instance. Register a Telegram webhook pointing
 directly at it (no LB yet). Send `/weather` messages to your bot and confirm end-to-end
-flow works — message in, weather reply out.
+flow works - message in, weather reply out.
 
-**Step 3.** Build the load balancer — listener, TLS terminator, HTTP parser, and a
+**Step 3.** Build the load balancer - listener, TLS terminator, HTTP parser, and a
 minimal forwarder with no routing logic (just forwards everything to the weather handler).
 Change the Telegram webhook to point at the LB. Confirm end-to-end flow still works
 through the LB.
